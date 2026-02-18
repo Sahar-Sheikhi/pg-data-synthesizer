@@ -1,39 +1,46 @@
 # PG Synthetic Foundry 🛡️
 
-A lightweight Python framework to generate **statistically consistent synthetic data** from a Postgres database without exporting any real-world records.
+A universal, metadata-driven Python engine designed to generate **statistically consistent synthetic data** from any Postgres database without ever reading a single row of real-world data.
 
-## 🚀 The Challenge
-Developing locally often requires realistic data, but moving production data to local machines creates security risks and violates privacy standards (GDPR/SOC2).
+## 🚀 The Core Philosophy: Zero-Knowledge
+Developing locally usually requires a choice: use empty databases or risk privacy by exporting real PII (Personally Identifiable Information). This project eliminates that choice by using a **Metadata-First** approach—learning the "blueprint" of the database without ever opening the "vault."
 
-## 💡 The Solution: Zero-Knowledge Synthesis
-This project uses **Metadata Reflection** to learn the "blueprint" of a database without ever reading the sensitive rows inside. We create a "Shadow Database" using:
 
-* **The Firewall**: `SQLAlchemy` reflection to inspect schemas via system catalogs rather than table rows.
-* **The Clean Room**: `Faker` to generate realistic, non-identifiable information from scratch.
-* **The Registry**: An in-memory mapping system to maintain **Foreign Key integrity** across tables (e.g., linking synthetic rentals to synthetic customers).
-* **The Proof**: An automated **Audit Logger** and **PII Validator** to ensure 0% data leakage.
 
-## 🛠️ Project Structure
-- `config.py`: Centralized database credentials and synthesis settings.
-- `db_inspector.py`: Connects to Postgres to map metadata and logs an **Audit Trail** of all SQL commands.
-- `data_generator.py`: The engine that creates fake entities while preserving relational logic.
-- `main.py`: The orchestrator that builds the synthetic foundation.
-- `validator.py`: A security script that mathematically proves the synthetic data has zero overlap with the real database.
+## 🏗️ Technical Architecture
+The project is built on a modular four-layer security model:
 
-## 🚦 Getting Started
-1.  **Restore DB**: Restore the `dvdrental.tar` folder to your local Postgres instance.
-2.  **Configure**: Update `config.py` with your local `postgreSQL` credentials.
-3.  **Install Dependencies**:
+1. **The Firewall (`db_inspector.py`)**: Uses SQLAlchemy reflection to query the database *Information Schema*. It identifies table names, data types, and constraints without executing a single `SELECT` on your data.
+2. **The Universal Engine (`data_generator.py`)**: A dynamic type-mapping engine. Whether a table has 5 columns or 1,500, it automatically assigns `Faker` providers based on column names and data types (Integer, Varchar, etc.).
+3. **The Black Box (`audit_log.txt`)**: A transparent log of every SQL command sent to Postgres. This provides **immutable proof** that the script only touched system catalogs and never accessed production rows.
+4. **The Independent Auditor (`validator.py`)**: A post-generation script that performs a **Negative Join** (set-intersection) between the source database and the synthetic output to mathematically prove a **0% leakage rate**.
+
+## 🛡️ Data Privacy & Inspection Logic
+This project ensures total data isolation by creating a hard boundary between structure and content.
+
+* **What it READS**: Table names, column names, data types, and relational constraints (PK/FK).
+* **What it NEVER Reads**: Row values, PII/PHI, or physical storage indexes.
+* **Logical vs. Physical**: The script ignores physical **Indexes** because they are optimizations for existing data. Instead, it recreates the **Logical Constraints**, allowing the new database to build its own indexes upon insertion.
+
+
+
+## 📊 Verification Results
+Running the suite against a standard Postgres sample database:
+* **PII Overlap (Leakage)**: **0.0%**
+* **Constraint Integrity**: Foreign keys are maintained via an in-memory `SharedRegistry`.
+* **Audit Trace**: 100% Metadata-only queries (captured in `audit_log.txt`).
+
+## 🛠️ Setup & Execution
+1.  **Configure**: Update `config.py` with your Postgres credentials.
+2.  **Install Dependencies**: 
     ```bash
     pip install -r requirements.txt
     ```
-4.  **Run & Verify**:
+3.  **Generate & Audit**: 
     ```bash
-    python main.py      # Generate synthetic data + Audit log
-    python validator.py  # Run the PII Leakage Audit
+    python main.py      # Generates data for ALL detected tables
+    python validator.py  # Verifies synthetic isolation
     ```
 
-## 📊 Verification Results
-The included `validator.py` confirms:
-- **PII Overlap**: 0.0%
-- **Audit Trace**: 100% Metadata-only queries (captured in `audit_log.txt`).
+## 📜 License
+MIT
