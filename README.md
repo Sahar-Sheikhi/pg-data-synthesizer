@@ -1,35 +1,24 @@
-# PostgreSQL Data Synthesizer
+# PG Synthetic Foundry
 
-A simple tool to generate synthetic data for PostgreSQL databases.
+A lightweight Python framework to generate **statistically consistent synthetic data** from a Postgres database without exporting any real-world records.
 
-## Setup
+## 🚀 The Challenge
+Developing locally often requires realistic data, but moving production data to local machines creates security risks and violates privacy standards (GDPR/SOC2).
 
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+## 💡 The Solution
+This project uses **Metadata Reflection** to learn the structure of a database (specifically tested on the `dvdrental` sample) and recreates a "Shadow Database" using:
+* **SQLAlchemy** to inspect schemas without querying rows.
+* **Faker** to generate realistic, non-identifiable information.
+* **In-Memory Registry** to maintain Foreign Key integrity across tables.
 
-2. Configure your database in `config.py`:
-```python
-DB_NAME = "dvdrental"
-DB_USER = "postgres"
-DB_PASS = "mypassword"
-DB_HOST = "127.0.0.1"
-DB_PORT = "5432"
-```
+## 🛠️ Project Structure
+- `db_inspector.py`: Connects to Postgres to map tables and constraints.
+- `data_generator.py`: Contains the logic for creating fake entities (Customers, Rentals).
+- `main.py`: The orchestrator that builds the synthetic foundation.
 
-3. Run the generator:
-```bash
-python main.py
-```
-
-## Features
-
-- Inspects PostgreSQL database schema
-- Generates synthetic data based on column types
-- Respects foreign key relationships
-
-## Requirements
-
-- Python 3.x
-- PostgreSQL database
+## 🚦 Getting Started
+1. Restore the `dvdrental.tar` to your local Postgres.
+2. Update `config.py` with your credentials.
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
