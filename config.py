@@ -8,4 +8,4 @@ DB_PORT = "5432"
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 # Synthesis Settings
-ROW_COUNT = 100  # How many fake records to generate per table
+ROW_COUNT = 1000  # How many fake records to generate per table
