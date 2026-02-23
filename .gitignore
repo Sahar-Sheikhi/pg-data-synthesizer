@@ -9,3 +9,5 @@ audit_log.txt
 __pycache__/
 .venv/
 .env
+test/
+test/*
