@@ -1,47 +1,80 @@
+"""
+Database-Agnostic Synthetic Data Generator
+
+This module orchestrates the generation of synthetic data by analyzing database schema,
+determining table dependencies, and generating type-safe synthetic records for all tables.
+The generated data maintains referential integrity and respects database constraints.
+"""
+
 import json
 from db_inspector import DBInspector
 from data_generator import DataGenerator
 from config import ROW_COUNT
 
+
 def run_synthesis():
-    inspector = DBInspector()
-    generator = DataGenerator()
+    """
+    Main synthesis orchestration function.
     
-    print(f"--- 🚀 Starting Agnostic Synthesis ---")
+    Analyzes database schema, determines optimal table processing order based on
+    foreign key dependencies, and generates synthetic data for all tables while
+    maintaining referential integrity.
+    
+    The generated synthetic data is exported to 'synthetic_foundation.json'.
+    """
+    # Initialize database inspector and data generator
+    inspector = DBInspector()
+    generator = DataGenerator(inspector)
+    
+    print("--- Starting Database-Agnostic Data Synthesis ---")
     
     all_tables = inspector.get_all_tables()
     
-    # Automatic dependency ordering:
-    # Tables with fewer foreign key columns are processed first to establish parent records
-    def calculate_dependency_score(table_name):
-        cols = inspector.get_columns(table_name)
-        # Count foreign key indicators (columns ending in '_id' excluding own primary key)
-        clean_name = table_name.split('.')[-1].lower()
-        fk_count = sum(1 for c in cols if "_id" in c['name'].lower() and clean_name not in c['name'].lower())
-        return fk_count
+    def calculate_foreign_key_count(table_name):
+        """
+        Calculate the number of foreign keys for a table.
+        
+        Tables with fewer foreign keys are processed first,
+        ensuring parent records exist before child records are generated.
+        
+        Args:
+            table_name (str): Name of the table to analyze
+            
+        Returns:
+            int: Number of foreign key constraints for the table
+        """
+        fks_map = inspector.get_real_foreign_keys(table_name)
+        return len(fks_map)
 
     print("Analyzing table dependencies...")
-    sorted_tables = sorted(all_tables, key=calculate_dependency_score)
+    
+    # Sort tables by foreign key count and alphabetically for consistency
+    sorted_tables = sorted(all_tables, key=lambda t: (calculate_foreign_key_count(t), t))
 
     synthetic_foundation = {}
 
     for table_name in sorted_tables:
-        print(f"Processing '{table_name}' (Score: {calculate_dependency_score(table_name)})...")
+        foreign_key_count = calculate_foreign_key_count(table_name)
+        print(f"Processing '{table_name}' (Foreign Keys: {foreign_key_count})...")
+        
         try:
+            # Retrieve column metadata and construct schema dictionary
             columns_metadata = inspector.get_columns(table_name)
             table_schema = {col['name']: col['type'] for col in columns_metadata}
             
-            # Generate synthetic data for table
+            # Generate synthetic data for the current table
             table_data = generator.generate_table_data(table_name, table_schema, ROW_COUNT)
             synthetic_foundation[table_name] = table_data
             
         except Exception as e:
-            print(f"⚠️  Skip '{table_name}': {e}")
+            print(f"WARNING: Skipping '{table_name}': {e}")
 
+    # Export synthetic data to JSON file
     with open("synthetic_foundation.json", "w") as f:
         json.dump(synthetic_foundation, f, indent=4, default=str)
     
-    print("\n✅ Synthesis Complete. Order automatically determined by schema analysis.")
+    print("\nSynthesis Complete. Table processing order determined by schema analysis.")
+
 
 if __name__ == "__main__":
     run_synthesis()
