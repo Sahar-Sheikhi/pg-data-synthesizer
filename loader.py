@@ -30,7 +30,7 @@ def load_synthetic_data():
     # Connect to source database to get schema
     source_engine = create_engine(DATABASE_URL)
     dest_engine = create_engine(DESTINATION_DB_URL)
-    source_inspector = inspect(source_engine)
+
     
     try:
         with open("synthetic_foundation.json", "r") as f:
