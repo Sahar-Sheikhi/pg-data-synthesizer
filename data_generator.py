@@ -18,7 +18,7 @@ class DataGenerator:
     Attributes:
         inspector: DBInspector instance for schema introspection
         fake: Faker instance for generating realistic data
-        registry: Primary key values tracked per table for FK references
+        registry: Primary key ranges (min/max) per table for FK references
         counters: Table-specific primary key counters to prevent collisions
     """
     
@@ -43,23 +43,26 @@ class DataGenerator:
         pks = self.inspector.get_primary_keys(table_name)
         fks_map = self.inspector.get_real_foreign_keys(table_name)
         unique_trackers = {}
+        composite_pk_tracker = set()  # Track composite PK combinations
         
         table_rows = []
         for _ in range(count):
             row = {}
             for col_name, col_type in table_schema.items():
-                if col_name in pks:
+                # If column is both PK and FK (composite key), treat as FK
+                if col_name in pks and col_name not in fks_map:
                     counter_key = f"{table_name}.{col_name}"
                     val = self.counters.get(counter_key, 0) + 1
                     self.counters[counter_key] = val
                     row[col_name] = val
                     if table_name not in self.registry:
-                        self.registry[table_name] = []
-                    self.registry[table_name].append(val)
+                        self.registry[table_name] = {'min': val, 'max': val}
+                    else:
+                        self.registry[table_name]['max'] = val
 
                 elif col_name in fks_map:
                     referred_table = fks_map[col_name]
-                    available_refs = self.registry.get(referred_table, [1])
+                    pk_range = self.registry.get(referred_table, {'min': 1, 'max': 1})
                     needs_unique = 'manager' in col_name.lower()
                     
                     if needs_unique:
@@ -67,15 +70,18 @@ class DataGenerator:
                         if fk_tracker_key not in unique_trackers:
                             unique_trackers[fk_tracker_key] = set()
                         
-                        unused_refs = [ref for ref in available_refs if ref not in unique_trackers[fk_tracker_key]]
-                        if unused_refs:
-                            value = random.choice(unused_refs)
-                            unique_trackers[fk_tracker_key].add(value)
-                            row[col_name] = value
+                        attempts = 0
+                        while attempts < 50:
+                            value = random.randint(pk_range['min'], pk_range['max'])
+                            if value not in unique_trackers[fk_tracker_key]:
+                                unique_trackers[fk_tracker_key].add(value)
+                                row[col_name] = value
+                                break
+                            attempts += 1
                         else:
-                            row[col_name] = random.choice(available_refs)
+                            row[col_name] = random.randint(pk_range['min'], pk_range['max'])
                     else:
-                        row[col_name] = random.choice(available_refs)
+                        row[col_name] = random.randint(pk_range['min'], pk_range['max'])
 
                 else:
                     value = self.generate_validated_value(col_name, col_type)
@@ -99,6 +105,20 @@ class DataGenerator:
                         unique_trackers[col_name].add(value)
                     
                     row[col_name] = value
+            
+            # Handle composite PK uniqueness (when all PKs are also FKs)
+            if len(pks) > 1 and all(pk in fks_map for pk in pks):
+                pk_tuple = tuple(row[pk] for pk in sorted(pks))
+                attempts = 0
+                while pk_tuple in composite_pk_tracker and attempts < 100:
+                    # Regenerate FK values for the composite key
+                    for pk_col in pks:
+                        referred_table = fks_map[pk_col]
+                        pk_range = self.registry.get(referred_table, {'min': 1, 'max': 1})
+                        row[pk_col] = random.randint(pk_range['min'], pk_range['max'])
+                    pk_tuple = tuple(row[pk] for pk in sorted(pks))
+                    attempts += 1
+                composite_pk_tracker.add(pk_tuple)
             
             table_rows.append(row)
         return table_rows

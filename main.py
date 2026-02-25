@@ -9,7 +9,6 @@ The generated data maintains referential integrity and respects database constra
 import json
 from db_inspector import DBInspector
 from data_generator import DataGenerator
-from config import ROW_COUNT
 
 
 def run_synthesis():
@@ -55,15 +54,16 @@ def run_synthesis():
 
     for table_name in sorted_tables:
         foreign_key_count = calculate_foreign_key_count(table_name)
-        print(f"Processing '{table_name}' (Foreign Keys: {foreign_key_count})...")
+        row_count = inspector.get_table_row_count(table_name)
+        print(f"Processing '{table_name}' (Foreign Keys: {foreign_key_count}, Rows: {row_count})...")
         
         try:
             # Retrieve column metadata and construct schema dictionary
             columns_metadata = inspector.get_columns(table_name)
             table_schema = {col['name']: col['type'] for col in columns_metadata}
             
-            # Generate synthetic data for the current table
-            table_data = generator.generate_table_data(table_name, table_schema, ROW_COUNT)
+            # Generate synthetic data matching source table cardinality
+            table_data = generator.generate_table_data(table_name, table_schema, row_count)
             synthetic_foundation[table_name] = table_data
             
         except Exception as e:

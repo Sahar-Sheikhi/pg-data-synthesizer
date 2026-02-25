@@ -63,6 +63,27 @@ class DBInspector:
                   name, type, nullable, default, etc.
         """
         return self.inspector.get_columns(table_name)
+    
+    def get_table_row_count(self, table_name):
+        """
+        Retrieve the number of rows in a table.
+        
+        This reads only metadata (cardinality) without accessing actual data values,
+        ensuring zero data leakage while maintaining realistic table proportions.
+        
+        Args:
+            table_name (str): Name of the table to count
+            
+        Returns:
+            int: Number of rows in the table
+        """
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
+                return result.scalar()
+        except Exception as e:
+            logging.error(f"Error counting rows for {table_name}: {e}")
+            return 1000  # Fallback to default if count fails
 
     def get_real_foreign_keys(self, table_name):
         """

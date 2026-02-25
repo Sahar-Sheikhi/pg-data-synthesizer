@@ -8,4 +8,6 @@ DB_PORT = "5432"
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 # Synthesis Settings
-ROW_COUNT = 1000  # Number of synthetic records per table
+# Note: Row counts are automatically read from source database to maintain
+# realistic cardinality and referential integrity. To scale up/down, modify
+# the source query in DBInspector.get_table_row_count() method.

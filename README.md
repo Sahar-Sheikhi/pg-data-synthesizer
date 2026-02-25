@@ -1,103 +1,136 @@
-# PostgreSQL Synthetic Data Engine 🛡️
+# PostgreSQL Synthetic Data Generator
 
-A universal, metadata-driven Python engine designed to generate **statistically consistent synthetic data** from any Postgres database without ever reading a single row of real-world data.
+Metadata-driven synthetic data generation for PostgreSQL databases. Generates type-safe synthetic data while maintaining referential integrity and matching source database cardinality.
 
-<br>
+## Overview
 
----
+This tool generates synthetic data by analyzing database schema metadata without reading actual data. It preserves foreign key relationships, primary key constraints, and table dependencies while ensuring zero data leakage.
 
-<br>
+## Features
 
-## 🚀 The Core Philosophy: Zero-Knowledge
+- **Metadata-only access**: Reads schema, constraints, and row counts only
+- **Type-safe generation**: Supports Integer, String, Boolean, DateTime, Date, Numeric, Float, Enum, Array
+- **Referential integrity**: Maintains foreign key relationships and composite keys
+- **Dynamic cardinality**: Matches source database row counts per table
+- **Memory-optimized**: O(1) registry storage per table for large-scale databases
+- **Audit logging**: All SQL queries logged to `audit_log.txt` for compliance verification
 
-Developing locally usually requires a choice: use empty databases or risk privacy by exporting real PII (Personally Identifiable Information). This project eliminates that choice by using a **Metadata-First** approach—learning the "blueprint" of the database without ever opening the "vault."
+## Architecture
 
-<br>
+| Component | Purpose |
+|-----------|---------|
+| `db_inspector.py` | Schema introspection via information_schema queries |
+| `data_generator.py` | Type-based synthetic data generation with constraint handling |
+| `main.py` | Orchestrates dependency-ordered data generation |
+| `loader.py` | Loads synthetic data into target PostgreSQL database |
+| `validator.py` | Validates PII leakage and referential integrity |
+| `comprehensive_validator.py` | Analyzes cardinality, distribution, NULLs, relationships, temporal patterns |
 
----
+## Requirements
 
-<br>
+- Python 3.8+
+- PostgreSQL database
+- Dependencies: SQLAlchemy, Pandas, Faker
 
-## ⚖️ Compliance & Use Cases
+## Installation
 
-This framework is specifically engineered for environments governed by strict data sovereignty laws. It is ideal for:
+```bash
+pip install -r requirements.txt
+```
 
-* **GDPR Compliance**: Generates data that is mathematically decoupled from real individuals, exercising "Privacy by Design."
-* **ISO/IEC 27001**: Supports Annex A.14 (System acquisition, development, and maintenance) by ensuring production data is never used in test environments.
-* **SOC2 Audits**: Provides an immutable `audit_log.txt` to prove to auditors that PII was never accessed during the development lifecycle.
-* **Safe Outsourcing**: Allows third-party developers to work on realistic data structures without seeing actual customer information.
+## Configuration
 
-<br>
+Edit `config.py` with database credentials:
 
----
+```python
+DB_NAME = "your_database"
+DB_USER = "postgres"
+DB_PASS = "password"
+DB_HOST = "127.0.0.1"
+DB_PORT = "5432"
+```
 
-<br>
+## Usage
 
-## 🏗️ Technical Architecture
+### Generate Synthetic Data
 
-The project is built on a modular four-layer security model:
+```bash
+python main.py
+```
 
-| Layer | Component | Responsibility |
-| :--- | :--- | :--- |
-| **1. The Firewall** | `db_inspector.py` | Queries the *Information Schema* only. No `SELECT *` allowed. |
-| **2. The Engine** | `data_generator.py` | Dynamic type-mapping. Maps SQL types to `Faker` providers. |
-| **3. The Black Box** | `audit_log.txt` | A real-time trace of all SQL commands as proof of non-access. |
-| **4. The Auditor** | `validator.py` | Performs a "Negative Join" to mathematically prove 0% leakage. |
+Outputs: `synthetic_foundation.json` with synthetic records matching source cardinality.
 
-<br>
+### Load into Target Database
 
----
+```bash
+python loader.py
+```
 
-<br>
+Creates `synthetic_dev_db` database with synthetic data maintaining schema and constraints.
 
-## 🛡️ Data Privacy & Inspection Logic
+### Validate Data Quality
 
-This project ensures total data isolation by creating a hard boundary between structure and content.
+```bash
+python validator.py                    # Basic integrity check
+python comprehensive_validator.py      # Full quality analysis
+python verify_samples.py               # Side-by-side comparison
+```
 
-* **What it READS**: Table names, column names, data types, and relational constraints (PK/FK).
-* **What it NEVER Reads**: Row values, PII/PHI, or physical storage indexes.
-* **Logical vs. Physical**: The script ignores physical **Indexes** (B-Trees) because they are optimizations for existing data. Instead, it recreates the **Logical Constraints**, allowing the target database to build its own fresh indexes.
+## Technical Details
 
-<br>
+### Data Generation Process
 
----
+1. **Schema Analysis**: Extracts table names, columns, types, PKs, FKs, enum values
+2. **Dependency Ordering**: Sorts tables by foreign key count (parents before children)
+3. **Type Mapping**: Generates values based on SQLAlchemy type inspection
+4. **Constraint Handling**: 
+   - Primary keys: Sequential generation per table
+   - Foreign keys: Random selection from parent PK range
+   - Composite keys: Unique tuple tracking
+   - Unique constraints: Value deduplication for manager/email columns
 
-<br>
+### Memory Optimization
 
-## 📊 Verification Results
+Registry stores PK ranges `{min, max}` instead of full value lists, reducing memory from O(n) to O(1) per table.
 
-Running the suite against a standard Postgres sample database yields the following security metrics:
+### Supported Data Types
 
-* **PII Overlap (Leakage)**: **0.0%**
-* **Constraint Integrity**: Foreign keys are maintained via an in-memory `SharedRegistry`.
-* **Audit Trace**: 100% Metadata-only queries (captured in `audit_log.txt`).
+- Numeric: Integer, Numeric, Float
+- Text: String (with length constraints), Enum
+- Temporal: Date, DateTime
+- Boolean: True/False
+- Complex: Array (recursive generation)
 
-<br>
+## Validation Metrics
 
----
+The comprehensive validator analyzes:
 
-<br>
+1. **Cardinality**: Row count matching per table
+2. **Distribution**: Value skew and uniqueness analysis
+3. **NULL Percentage**: Comparison with source (currently 0%)
+4. **Relationships**: Foreign key cardinality ratios
+5. **Temporal Distribution**: Date/time range analysis
+6. **Referential Integrity**: Orphaned FK detection
 
-## 🛠️ Setup & Execution
+## Database Compatibility
 
-1.  **Configure**: Update `config.py` with your Postgres credentials.
+Primary support: PostgreSQL 9.6+
 
-2.  **Install Dependencies**: 
-    ```bash
-    pip install -r requirements.txt
-    ```
+PostgreSQL-specific features:
+- Enum type extraction via `pg_enum` catalog
+- Array type support
 
-3.  **Generate & Audit**: 
-    ```bash
-    python main.py      # Generates data for ALL detected tables
-    python validator.py  # Verifies synthetic isolation
-    ```
+Other databases: Schema introspection is database-agnostic via SQLAlchemy; enum handling will use fallback values.
 
-<br>
+## Limitations
 
----
+- NULL generation: Currently disabled (all columns populated)
+- Composite PK limit: Tables with >100 unique combinations may experience collisions
+- Text generation: Generic lorem ipsum (not domain-specific)
 
-<br>
+## License
+
+This project is provided as-is for database development and testing purposes.
 
 ## 📜 License
 MIT
